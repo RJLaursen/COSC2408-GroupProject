@@ -1,5 +1,67 @@
 body {
-  margin: 2rem;
+  margin: 0;
   font-family: Arial, Helvetica, sans-serif;
   line-height: 1.5;
+  color: #222;
+  background: #fff;
+}
+
+main {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+section,
+form {
+  margin-top: 1.5rem;
+}
+
+.conversation {
+  list-style: none;
+  padding: 0;
+}
+
+.conversation li {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.conversation p {
+  margin: 0.25rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+}
+
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  resize: vertical;
+}
+
+textarea,
+button {
+  font: inherit;
+}
+
+button {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
