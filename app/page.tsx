@@ -1,19 +1,19 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { classifyResponse } from "@/lib/classify-response";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  HISTORY_LIMIT,
+  MAX_MESSAGE_LENGTH,
+  isConversationReply,
+  readConversationDebug,
+  type Message,
+} from "@/lib/conversation";
 import {
   getNextState,
   isActiveState,
   sandraDialogue,
-  sandraRedirect,
   type ScenarioState,
 } from "@/lib/scenario";
-
-type Message = {
-  speaker: "Sandra" | "You";
-  text: string;
-};
 
 type Conversation = {
   state: ScenarioState;
@@ -26,40 +26,88 @@ export default function Home() {
     messages: [{ speaker: "Sandra", text: sandraDialogue.INITIAL_REQUEST }],
   });
   const [response, setResponse] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [failedTurn, setFailedTurn] = useState<{ text: string; history: Message[] } | null>(null);
+  const pendingRequest = useRef<AbortController | null>(null);
   const active = isActiveState(conversation.state);
+
+  useEffect(() => () => {
+    pendingRequest.current?.abort();
+    pendingRequest.current = null;
+  }, []);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = response.trim();
-    if (!active || !text) return;
+    if (!text || failedTurn) return;
+    void sendResponse(text, conversation.messages.slice(-HISTORY_LIMIT));
+  }
 
-    const classification = classifyResponse(text);
+  async function sendResponse(text: string, history: Message[], retry = false) {
+    const state = conversation.state;
+    if (!isActiveState(state) || !text || pendingRequest.current) return;
 
-    setConversation((current) => {
-      if (!isActiveState(current.state)) return current;
-
-      const nextState = getNextState(current.state, classification);
-      const messages: Message[] = [
-        ...current.messages,
-        { speaker: "You", text },
-      ];
-
-      if (isActiveState(nextState)) {
-        messages.push({
-          speaker: "Sandra",
-          text:
-            classification === "UNCLEAR"
-              ? sandraRedirect[nextState]
-              : sandraDialogue[nextState],
-        });
-      }
-
-      return { state: nextState, messages };
-    });
+    const controller = new AbortController();
+    pendingRequest.current = controller;
+    setIsLoading(true);
+    setFailedTurn(null);
     setResponse("");
+    if (!retry) {
+      setConversation((current) => ({
+        ...current,
+        messages: [...current.messages, { speaker: "You", text }],
+      }));
+    }
+
+    // Allow the bounded model attempts to finish, but never leave the input stuck.
+    const timeout = window.setTimeout(() => controller.abort(), 90000);
+    try {
+      const response = await fetch("/api/conversation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state, message: text, history }),
+        signal: controller.signal,
+      });
+      const data: unknown = await response.json();
+      if (!data || typeof data !== "object") throw new Error("Unusable response");
+      if (process.env.NODE_ENV === "development" && "debug" in data) {
+        const debug = readConversationDebug(data.debug);
+        if (debug) console.debug("[conversation]", debug);
+      }
+      if (!response.ok || !("classification" in data) || !("reply" in data)) {
+        throw new Error("Conversation unavailable");
+      }
+      const result = { classification: data.classification, reply: data.reply };
+      if (!isConversationReply(result, state)) throw new Error("Unusable response");
+
+      // Stop/unmount invalidates this request, even if a late response arrives.
+      if (pendingRequest.current !== controller) return;
+      setConversation((current) => {
+        if (!isActiveState(current.state)) return current;
+        const nextState = getNextState(current.state, result.classification);
+        return {
+          state: nextState,
+          messages: isActiveState(nextState)
+            ? [...current.messages, { speaker: "Sandra", text: result.reply }]
+            : current.messages,
+        };
+      });
+    } catch {
+      if (pendingRequest.current === controller) setFailedTurn({ text, history });
+    } finally {
+      window.clearTimeout(timeout);
+      if (pendingRequest.current === controller) {
+        pendingRequest.current = null;
+        setIsLoading(false);
+      }
+    }
   }
 
   function handleExit() {
+    pendingRequest.current?.abort();
+    pendingRequest.current = null;
+    setIsLoading(false);
+    setFailedTurn(null);
     setConversation((current) => ({
       ...current,
       state: getNextState(current.state, "STOP"),
@@ -111,18 +159,29 @@ export default function Home() {
             id="response"
             name="response"
             rows={3}
+            maxLength={MAX_MESSAGE_LENGTH}
+            disabled={isLoading || failedTurn !== null}
             value={response}
             onChange={(event) => setResponse(event.target.value)}
             required
           />
           <div className="actions">
-            <button type="submit" disabled={!response.trim()}>
+            <button type="submit" disabled={isLoading || failedTurn !== null || !response.trim()}>
               Send response
             </button>
             <button type="button" onClick={handleExit}>
               Stop simulation
             </button>
           </div>
+          <p role="status">{isLoading ? "Sandra is responding..." : ""}</p>
+          {failedTurn && (
+            <div>
+              <p role="alert">Sandra&apos;s response is unavailable right now. Please try again.</p>
+              <button type="button" onClick={() => void sendResponse(failedTurn.text, failedTurn.history, true)}>
+                Retry response
+              </button>
+            </div>
+          )}
         </form>
       )}
 
