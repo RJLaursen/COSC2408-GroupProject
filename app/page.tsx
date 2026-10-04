@@ -116,25 +116,23 @@ export default function Home() {
   }
 
   return (
-    <main>
-      <header>
+    <main className="simulation">
+      <header className="page-header">
         <h1>Virtual Health Precinct</h1>
-        <p>Clinical Simulation Prototype</p>
-        <h2>Ward 4 North</h2>
+        <p className="subtitle">Clinical Simulation Prototype</p>
+      </header>
+
+      <section className="scenario-card" aria-labelledby="scenario-heading">
+        <h2 id="scenario-heading">Ward 4 North</h2>
         <p>
           You are a second-year nursing student on placement. You have studied
           medication administration but have not been clinically assessed or
           authorised to administer IV medication independently.
         </p>
         <p>Sandra Kowalski, RN, is the nurse in charge of the afternoon shift.</p>
-        {active && (
-          <button type="button" onClick={handleExit}>
-            Stop simulation
-          </button>
-        )}
-      </header>
+      </section>
 
-      <section aria-labelledby="conversation-heading">
+      <section className="conversation-section" aria-labelledby="conversation-heading">
         <h2 id="conversation-heading">Conversation</h2>
         <ol
           className="conversation"
@@ -144,8 +142,8 @@ export default function Home() {
           aria-relevant="additions"
         >
           {conversation.messages.map((message, index) => (
-            <li key={index}>
-              <strong>{message.speaker}</strong>
+            <li key={index} className={`message ${message.speaker === "You" ? "message-student" : "message-sandra"}`}>
+              <strong className="speaker-label">{message.speaker}</strong>
               <p>{message.text}</p>
             </li>
           ))}
@@ -153,7 +151,7 @@ export default function Home() {
       </section>
 
       {active && (
-        <form onSubmit={handleSubmit}>
+        <form className="response-form" onSubmit={handleSubmit}>
           <label htmlFor="response">Your response to Sandra</label>
           <textarea
             id="response"
@@ -166,18 +164,18 @@ export default function Home() {
             required
           />
           <div className="actions">
-            <button type="submit" disabled={isLoading || failedTurn !== null || !response.trim()}>
+            <button className="button-primary" type="submit" disabled={isLoading || failedTurn !== null || !response.trim()}>
               Send response
             </button>
-            <button type="button" onClick={handleExit}>
+            <button className="button-stop" type="button" onClick={handleExit}>
               Stop simulation
             </button>
           </div>
-          <p role="status">{isLoading ? "Sandra is responding..." : ""}</p>
+          <p className="loading-status" role="status">{isLoading ? "Sandra is responding..." : ""}</p>
           {failedTurn && (
-            <div>
+            <div className="retry-notice">
               <p role="alert">Sandra&apos;s response is unavailable right now. Please try again.</p>
-              <button type="button" onClick={() => void sendResponse(failedTurn.text, failedTurn.history, true)}>
+              <button className="button-secondary" type="button" onClick={() => void sendResponse(failedTurn.text, failedTurn.history, true)}>
                 Retry response
               </button>
             </div>
@@ -187,7 +185,7 @@ export default function Home() {
 
       <div aria-live="polite" aria-atomic="true">
         {conversation.state === "YES_OUTCOME" && (
-          <section aria-labelledby="outcome-heading">
+          <section className="conclusion-card" aria-labelledby="outcome-heading">
             <h2 id="outcome-heading">You agreed to the task</h2>
             <p>
               The conversation has ended. In this scenario, you were not
@@ -204,7 +202,7 @@ export default function Home() {
           </section>
         )}
         {conversation.state === "NO_OUTCOME" && (
-          <section aria-labelledby="outcome-heading">
+          <section className="conclusion-card" aria-labelledby="outcome-heading">
             <h2 id="outcome-heading">You maintained your boundary</h2>
             <p>
               The conversation has ended. You continued to decline a task outside
@@ -218,7 +216,7 @@ export default function Home() {
           </section>
         )}
         {conversation.state === "EXIT" && (
-          <section aria-labelledby="outcome-heading">
+          <section className="conclusion-card" aria-labelledby="outcome-heading">
             <h2 id="outcome-heading">Simulation stopped</h2>
             <p>
               You have left the conversation. You can take a break or close this
