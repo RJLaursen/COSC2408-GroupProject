@@ -41,7 +41,7 @@ server. The API key stays server-side. Real environment files remain ignored;
 `lib/scenario.ts` owns the allowed state transitions and the opening Sandra message.
 Agreement at any active stage ends the conversation. Refusals progress through
 three pressure stages; the fourth refusal reaches the boundary-maintained outcome.
-Unclear replies keep the current state without resetting refusal progression,
+`CONTINUE` replies keep the current state without resetting refusal progression,
 and stopping ends the conversation without further escalation.
 
 Each text turn uses two separate Groq calls in JSON Object Mode:
@@ -52,10 +52,9 @@ Each text turn uses two separate Groq calls in JSON Object Mode:
    of at most 400 characters. The classifier describes the actual point and actor
    before checking whether the student made a decision. Temperature is 0.1, with
    a 256-token limit.
-2. Code uses `getNextState(...)` to check for a terminal outcome and
-   derive one dialogue goal. The server first translates model `CONTINUE` to the
-   existing application `UNCLEAR`; other classifications map directly. Terminal
-   turns skip generation and return an empty reply.
+2. Code passes the validated classification directly to `getNextState(...)` to
+   check for a terminal outcome and derive one dialogue goal. Terminal turns skip
+   generation and return an empty reply.
 3. Generate only Sandra's reply for that goal. Temperature is 0.4, with a 256-token
    limit. The prompt includes fixed facts, recent history and boundaries, not every
    escalation rule. Meaning is an advisory hint: raw history and the latest message

@@ -28,6 +28,7 @@ export function getNextState(
   if (response === "STOP") return "EXIT";
   if (response === "AGREE") return "YES_OUTCOME";
   if (response === "REFUSE") return nextRefusalState[state];
+  // CONTINUE preserves the current state and refusal pressure.
   return state;
 }
 

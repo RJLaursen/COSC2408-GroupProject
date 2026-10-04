@@ -1,1 +1,1 @@
-export type ResponseClassification = "AGREE" | "REFUSE" | "STOP" | "UNCLEAR";
+export type ResponseClassification = "AGREE" | "REFUSE" | "STOP" | "CONTINUE";

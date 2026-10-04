@@ -1,7 +1,7 @@
 import Groq from "groq-sdk";
 import { setTimeout as delay } from "node:timers/promises";
 import {
-  isModelUnderstanding, isGenerationResult, isConversationRequest, toApplicationClassification,
+  isModelUnderstanding, isGenerationResult, isConversationRequest,
   type ModelUnderstanding, type ConversationDebug, type StageDebug,
 } from "@/lib/conversation";
 import { classificationPrompt, generationPrompt, getDialogueGoal } from "@/lib/conversation-prompts";
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
           stageDebug.status = "success";
           log({ stage, goal, ...stageDebug, modelAttempt, httpStatus: response.status, status: "success",
             modelClassification: stage === "classification" ? (result as ModelUnderstanding).classification : debug.modelClassification,
-            classification: stage === "classification" ? toApplicationClassification((result as ModelUnderstanding).classification) : debug.classification,
+            classification: stage === "classification" ? (result as ModelUnderstanding).classification : debug.classification,
             meaning: stage === "classification" ? (result as ModelUnderstanding).meaning : debug.meaning,
             attemptLatencyMs: Date.now() - attemptStarted, rateLimit: rateLimitInfo(response.headers) });
           return result;
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
 
   const classified = await callStage("classification", classificationPrompt(body), isModelUnderstanding);
   if (!classified) return unavailable();
-  const classification = toApplicationClassification(classified.classification);
+  const classification = classified.classification;
   debug.modelClassification = classified.classification;
   debug.classification = classification;
   debug.meaning = classified.meaning;
