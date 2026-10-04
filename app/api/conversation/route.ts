@@ -1,8 +1,8 @@
 import Groq from "groq-sdk";
 import { setTimeout as delay } from "node:timers/promises";
 import {
-  isClassificationResult, isGenerationResult, isConversationRequest,
-  type ConversationDebug, type StageDebug,
+  isModelUnderstanding, isGenerationResult, isConversationRequest, toApplicationClassification,
+  type ModelUnderstanding, type ConversationDebug, type StageDebug,
 } from "@/lib/conversation";
 import { classificationPrompt, generationPrompt, getDialogueGoal } from "@/lib/conversation-prompts";
 
@@ -65,8 +65,7 @@ export async function POST(request: Request) {
     return unavailable();
   }
 
-  const models = [...new Set([process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b",
-    "qwen/qwen3.8-27b", "openai/gpt-oss-20b"])];
+  const models = ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"];
   const groq = new Groq({ apiKey, timeout: 6000, maxRetries: 0 });
 
   // Both stages share fallback/retry handling, but start independently at the primary model.
@@ -82,15 +81,17 @@ export async function POST(request: Request) {
         if (request.signal.aborted) return null;
         attempt++;
         const attemptStarted = Date.now();
-        const stageDebug: StageDebug = { model, attempt, fallbackIndex, latencyMs: 0 };
+        const stageDebug: StageDebug = { model, attempt, fallbackIndex, latencyMs: 0, status: "pending" };
         debug[debugKey] = stageDebug;
         const completionRequest = {
           model,
-          temperature: stage === "classification" ? 0.1 : 0.5,
-          reasoning_effort: "low" as const,
-          reasoning_format: "hidden" as const,
-          // 128 caused Qwen JSON generation failures in live checks.
-          max_completion_tokens: stage === "classification" ? 192 : 256,
+          temperature: stage === "classification" ? 0.1 : 0.4,
+          // Groq exposes different reasoning controls for Qwen and GPT-OSS.
+          ...(model === "qwen/qwen3.8-27b"
+            ? { reasoning_effort: "none" as const, reasoning_format: "hidden" as const }
+            : { reasoning_effort: "low" as const, include_reasoning: false }),
+          // Allow a concise meaning sentence as well as the decision classification.
+          max_completion_tokens: 256,
           response_format: { type: "json_object" as const },
           messages: [{ role: "user" as const, content: prompt }],
         };
@@ -101,24 +102,44 @@ export async function POST(request: Request) {
             .create(completionRequest, { signal: request.signal }).withResponse();
           const choice = completion.choices[0];
           let result: unknown;
-          try { result = JSON.parse(choice?.message.content || ""); } catch { result = null; }
+          let parsedJson = false;
+          try { result = JSON.parse(choice?.message.content || ""); parsedJson = true; }
+          catch { result = null; }
           stageDebug.latencyMs = Date.now() - stageStarted;
+          stageDebug.httpStatus = response.status;
           if (choice?.finish_reason !== "stop" || !validate(result)) {
+            stageDebug.status = "unusable_response";
+            stageDebug.reason = choice?.finish_reason !== "stop" ? "incomplete_completion" :
+              !parsedJson ? "invalid_json" : "validation_failed";
+            const parsed = result && typeof result === "object" ? result as Record<string, unknown> : null;
             log({ stage, goal, model, attempt, fallbackIndex, modelAttempt, httpStatus: response.status,
               status: "unusable_response", latencyMs: Date.now() - attemptStarted,
+              reason: stageDebug.reason,
+              finishReason: choice?.finish_reason,
+              modelClassification: stage === "classification" ? parsed?.classification : debug.modelClassification,
+              classification: debug.classification,
               rateLimit: rateLimitInfo(response.headers) });
             break;
           }
+          stageDebug.status = "success";
           log({ stage, goal, ...stageDebug, modelAttempt, httpStatus: response.status, status: "success",
-            classification: stage === "classification" ? (result as { classification: string }).classification : debug.classification,
+            modelClassification: stage === "classification" ? (result as ModelUnderstanding).classification : debug.modelClassification,
+            classification: stage === "classification" ? toApplicationClassification((result as ModelUnderstanding).classification) : debug.classification,
+            meaning: stage === "classification" ? (result as ModelUnderstanding).meaning : debug.meaning,
             attemptLatencyMs: Date.now() - attemptStarted, rateLimit: rateLimitInfo(response.headers) });
           return result;
         } catch (error) {
           stageDebug.latencyMs = Date.now() - stageStarted;
+          stageDebug.status = "provider_error";
+          stageDebug.httpStatus = error instanceof Groq.APIError ? error.status : undefined;
           if (request.signal.aborted) return null;
           const wait = modelAttempt === 1 ? retryDelay(error) : null;
           log({ stage, goal, model, attempt, fallbackIndex, modelAttempt, status: "provider_error",
             httpStatus: error instanceof Groq.APIError ? error.status : undefined,
+            errorType: error instanceof Error ? error.constructor.name : "UnknownError",
+            // SDK APIError.message contains the provider error body, not request headers.
+            // This stays in the opt-in server log and is redacted by log().
+            providerMessage: error instanceof Groq.APIError ? error.message : undefined,
             latencyMs: Date.now() - attemptStarted, retryInMs: wait,
             rateLimit: error instanceof Groq.APIError ? rateLimitInfo(error.headers) : {} });
           if (wait === null) break;
@@ -131,14 +152,19 @@ export async function POST(request: Request) {
     return null;
   }
 
-  const classified = await callStage("classification", classificationPrompt(body), isClassificationResult);
+  const classified = await callStage("classification", classificationPrompt(body), isModelUnderstanding);
   if (!classified) return unavailable();
-  debug.classification = classified.classification;
-  const goal = getDialogueGoal(state, classified.classification);
+  const classification = toApplicationClassification(classified.classification);
+  debug.modelClassification = classified.classification;
+  debug.classification = classification;
+  debug.meaning = classified.meaning;
+  const goal = getDialogueGoal(state, classification);
+  log({ stage: "routing", status: "goal_derived", modelClassification: classified.classification,
+    classification, meaning: classified.meaning, goal: goal?.name ?? null });
   let reply = "";
   if (goal) {
     const history = body.history;
-    const generated = await callStage("generation", generationPrompt(body, goal),
+    const generated = await callStage("generation", generationPrompt(body, goal, classified.meaning),
       (value): value is { reply: string } => isGenerationResult(value, history), goal.name);
     // Classification alone must never advance an active client turn.
     if (!generated) return unavailable();
@@ -146,6 +172,6 @@ export async function POST(request: Request) {
   }
   if (request.signal.aborted) return unavailable();
   debug.latencyMs = Date.now() - started;
-  return Response.json({ classification: classified.classification, reply,
+  return Response.json({ classification, reply,
     ...(development ? { debug } : {}) }, { headers: { "Cache-Control": "no-store" } });
 }
