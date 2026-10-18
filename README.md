@@ -16,6 +16,29 @@ npm run dev
 Open http://localhost:3000. Edit `app/page.tsx` to update the home page.
 The shared layout is in `app/layout.tsx`, with basic styles in `app/globals.css`.
 
+## Simulation controls
+
+Type responses in your own words and use **Send response**. The input grows up to
+a fixed height, then scrolls internally. Enter adds a new line; Ctrl+Enter does not
+submit. **Stop simulation** remains available while Sandra is responding.
+
+Patient and placement information is available from the expandable control in
+the overlaid HUD. **History** opens the full session transcript; Close or Escape
+returns to the scene without changing the scenario. It shows the newest messages
+on open and allows scrolling back. Only Sandra's current reply appears in the scene.
+The supplied ward/Arthur background and transparent Sandra expression images are
+served locally from `public/scene/` as high-quality WebP files. Their original
+dimensions and character transparency are preserved. Sandra is neutral initially
+and after the first refusal, frustrated after the second, and stern after the
+third. Outcomes retain her last expression. This presentation follows the
+existing scenario state and makes no extra AI calls.
+Sandra's typing bubble stays briefly before a fast visual reveal of the reply;
+the API starts immediately. Reduced motion shows the complete reply instead.
+The complete text remains available to assistive technology during the reveal.
+Voice and microphone controls are disabled placeholders for separate future work.
+No browser speech synthesis, microphone capture or external voice service is used.
+Conversation is text-only for now.
+
 ## Checks and production
 
 ```sh
