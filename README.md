@@ -19,9 +19,8 @@ The shared layout is in `app/layout.tsx`, with basic styles in `app/globals.css`
 ## Simulation controls
 
 Type responses in your own words and use **Send response**. The input grows up to
-a fixed height, then scrolls internally. Enter sends the response; Shift+Enter adds
-a new line. Enter does not send while an IME composition is being confirmed.
-**Stop simulation** remains available while Sandra is responding.
+a fixed height, then scrolls internally. Enter adds a new line; Ctrl+Enter does not
+submit. **Stop simulation** remains available while Sandra is responding.
 
 Every completed outcome offers **Restart simulation**. It clears the previous
 conversation and pending work, restores the opening request and input focus, and

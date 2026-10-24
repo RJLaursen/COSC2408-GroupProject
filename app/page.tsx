@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  useCallback, useEffect, useRef, useState,
-  type FormEvent, type KeyboardEvent,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   HISTORY_LIMIT,
   MAX_MESSAGE_LENGTH,
@@ -62,10 +59,9 @@ export default function Home() {
   const requestTimeout = useRef<number | null>(null);
   const restartFocus = useRef(false);
   const applicationShell = useRef<HTMLDivElement | null>(null);
+  const sceneStage = useRef<HTMLElement | null>(null);
   const responseForm = useRef<HTMLFormElement | null>(null);
   const responseInput = useRef<HTMLTextAreaElement | null>(null);
-  const composing = useRef(false);
-  const hudHeader = useRef<HTMLElement | null>(null);
   const conversationLog = useRef<HTMLOListElement | null>(null);
   const historyDialog = useRef<HTMLDialogElement | null>(null);
   const outcomeHeading = useRef<HTMLHeadingElement | null>(null);
@@ -108,14 +104,11 @@ export default function Home() {
 
   useEffect(() => {
     const form = responseForm.current;
-    const header = hudHeader.current;
-    if (!header) return;
+    if (!active || !form) return;
     const observer = new ResizeObserver(() => {
-      applicationShell.current?.style.setProperty("--composer-height", `${form?.getBoundingClientRect().height ?? 0}px`);
-      applicationShell.current?.style.setProperty("--hud-height", `${header.getBoundingClientRect().height}px`);
+      sceneStage.current?.style.setProperty("--composer-height", `${form.getBoundingClientRect().height}px`);
     });
-    if (form) observer.observe(form);
-    observer.observe(header);
+    observer.observe(form);
     return () => observer.disconnect();
   }, [active]);
 
@@ -180,14 +173,6 @@ export default function Home() {
     const text = response.trim();
     if (!text || failedTurn || isBusy) return;
     void sendResponse(text, conversation.messages.slice(-HISTORY_LIMIT));
-  }
-
-  function handleResponseKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key !== "Enter" || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return;
-    // Some IMEs report keyCode 229 while confirming a composed character.
-    if (composing.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
-    event.preventDefault();
-    if (!isBusy && !failedTurn && response.trim()) event.currentTarget.form?.requestSubmit();
   }
 
   async function sendResponse(text: string, history: Message[], retry = false) {
@@ -262,7 +247,6 @@ export default function Home() {
   }
 
   function handleExit() {
-    composing.current = false;
     cancelPendingTurn();
     setIsLoading(false);
     setRevealingReply(null);
@@ -275,7 +259,6 @@ export default function Home() {
   }
 
   function handleRestart() {
-    composing.current = false;
     cancelPendingTurn();
     historyDialog.current?.close();
     setIsLoading(false);
@@ -293,19 +276,23 @@ export default function Home() {
   return (
     <div ref={applicationShell} className={`application-shell${active ? "" : " simulation-ended"}`}>
       <a className="skip-link" href="#conversation-panel">Skip to Sandra&apos;s dialogue</a>
-      <header className="application-header" ref={hudHeader}>
+      <header className="application-header">
         <div className="application-brand">
+          <span className="brand-mark" aria-hidden="true">+</span>
           <h1>Virtual Health Precinct</h1>
         </div>
-        <p className="ward-label"><span>Ward 4 North</span> <span aria-hidden="true">&middot;</span> <span>Tuesday 14:00</span></p>
+        <p className="ward-label">Ward 4 North <span aria-hidden="true">&middot;</span> Tuesday 14:00</p>
         <div className="hud-controls">
+          <button className="voice-placeholder" type="button" disabled title="Sandra voice unavailable - planned separately" aria-label="Sandra voice unavailable">
+            <UiIcon name="speaker" />
+          </button>
           <button className="history-button hud-button" type="button" onClick={openHistory} aria-haspopup="dialog" aria-controls="history-dialog">
             <UiIcon name="history" /><span>History</span>
           </button>
           {active && (
             <details className="patient-information">
-              <summary><UiIcon name="patient" /><span>Patient details</span><span className="details-toggle" aria-hidden="true"><UiIcon name="chevron" /></span></summary>
-              <div className="patient-information-content" tabIndex={0} aria-label="Patient information">
+              <summary><UiIcon name="patient" /><span>Patient details</span><span className="details-toggle" aria-hidden="true">&#8964;</span></summary>
+              <div className="patient-information-content">
                 <div className="patient-heading">
                   <span className="patient-symbol" aria-hidden="true"><UiIcon name="patient" /></span>
                   <div><h2>Arthur Chen</h2><p>71 years &middot; Your patient</p></div>
@@ -333,9 +320,10 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="simulation-stage">
+      <main className="simulation-stage" ref={sceneStage}>
         <WardScene expression={conversation.expression} />
         <div className="scene-scrim" aria-hidden="true" />
+        <p className="scene-patient-label">Arthur Chen <span>71 years &middot; Your patient</span></p>
 
         <section id="conversation-panel" className="scene-interaction" aria-label="Conversation with Sandra" tabIndex={-1} inert={!active}>
           <div className="speech-bubble" role="log" aria-label="Sandra's current dialogue" aria-live="polite" aria-relevant="additions" aria-busy={isLoading}>
@@ -376,17 +364,17 @@ export default function Home() {
                     disabled={isBusy || failedTurn !== null}
                     value={response}
                     onChange={(event) => setResponse(event.target.value)}
-                    onKeyDown={handleResponseKeyDown}
-                    onCompositionStart={() => { composing.current = true; }}
-                    onCompositionEnd={() => { composing.current = false; }}
                     required
                     placeholder="Type your response to Sandra..."
                   />
+                  <button className="microphone-placeholder" type="button" disabled title="Microphone input unavailable - planned separately" aria-label="Microphone input unavailable">
+                    <UiIcon name="microphone" />
+                  </button>
                 </div>
                 <button className="button-primary" type="submit" disabled={isBusy || failedTurn !== null || !response.trim()}><UiIcon name="send" /><span>Send response</span></button>
               </div>
               <div className="response-help">
-                <p id="response-hint">Enter to send. Shift+Enter for a new line.</p>
+                <p id="response-hint">Enter adds a new line. You can stop at any time.</p>
                 <span id="response-count">{response.length} / {MAX_MESSAGE_LENGTH}</span>
               </div>
               {failedTurn && (
