@@ -39,12 +39,12 @@ h1, h2, h3, p {
 
 .application-shell {
   position: relative;
-  min-height: 100dvh;
+  min-height: var(--available-height, 100dvh);
 }
 
 .simulation-stage {
   position: relative;
-  height: 100dvh;
+  height: var(--available-height, 100dvh);
   min-height: 580px;
   overflow: hidden;
   isolation: isolate;
@@ -632,7 +632,7 @@ textarea::placeholder {
   inset: 0;
   width: min(450px, 100%);
   max-width: none;
-  height: 100dvh;
+  height: var(--available-height, 100dvh);
   max-height: none;
   margin: 0 0 0 auto;
   padding: 0;
@@ -767,14 +767,85 @@ textarea::placeholder {
 }
 
 .conclusion-card {
+  display: flex;
+  flex-direction: column;
   width: min(100%, 36rem);
   max-height: 100%;
-  overflow-y: auto;
-  padding: 2rem;
+  overflow: hidden;
   background: #f8fcfdfa;
   border: 1px solid #fff;
   border-radius: 22px;
   box-shadow: 0 12px 40px #102b4138;
+}
+
+.outcome-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2rem;
+}
+
+.outcome-content:focus-visible {
+  outline-offset: -4px;
+}
+
+.outcome-actions {
+  flex-shrink: 0;
+  padding: 1rem 2rem;
+  border-top: 1px solid var(--line);
+}
+
+.outcome-actions .button-primary {
+  min-height: 44px;
+  font-size: 0.875rem;
+}
+
+.conclusion-card blockquote {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid #7fa9b8;
+  background: #eaf3f6;
+  font-size: 0.875rem;
+}
+
+.coercion-note {
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #edf4f7;
+}
+
+.learning-resources {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.learning-resources h3 {
+  font-size: 1rem;
+}
+
+.conclusion-card section.learning-resources p {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-top: 0.375rem;
+}
+
+.learning-resources ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+}
+
+.learning-resources a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.375rem 0;
+  color: #125778;
+  font-size: 0.8125rem;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
 }
 
 .conclusion-card h2 {
@@ -879,18 +950,18 @@ textarea::placeholder {
 
 @media (max-width: 600px) {
   .simulation-stage {
-    min-height: 520px;
+    min-height: 0;
   }
   .application-header {
     display: grid;
-    grid-template-columns: 1fr auto auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     left: 4%;
     right: 4%;
     gap: 0.5rem;
-    padding: 0.875rem 0;
+    padding: 0.75rem 0;
   }
   .application-brand {
-    grid-column: 1 / 4;
+    grid-column: 1 / 3;
     grid-row: 1;
   }
   .brand-mark {
@@ -903,146 +974,136 @@ textarea::placeholder {
     font-size: 0.875rem;
   }
   .ward-label {
-    grid-column: 1 / 3;
+    grid-column: 1;
     grid-row: 2;
     padding: 0;
     border: 0;
     font-size: 0.625rem;
+    white-space: normal;
   }
   .hud-controls {
     display: contents;
   }
   .history-button {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 2;
-    width: 44px;
     padding: 0.5rem;
+    font-size: 0.6875rem;
+    gap: 0.375rem;
   }
-  .history-button span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
+  .history-button .ui-icon {
+    width: 16px;
+    height: 16px;
   }
   .patient-information {
-    grid-column: 4;
+    grid-column: 3;
     grid-row: 2;
     position: static;
     justify-self: end;
   }
   .patient-information summary {
-    width: 44px;
     padding: 0.5rem;
     justify-content: center;
+    font-size: 0.6875rem;
   }
-  .patient-information summary > span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
+  .patient-information summary .ui-icon, .details-toggle {
+    display: none;
   }
   .patient-information-content {
     top: 100%;
     right: 0;
     width: min(320px, 100%);
-    max-height: calc(100dvh - 10rem);
+    max-height: calc(var(--available-height, 100dvh) - 8rem);
   }
   .hud-controls > .button-stop {
-    grid-column: 4;
+    grid-column: 3;
     grid-row: 1;
     padding: 0.5rem;
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
   }
   .hud-controls > .button-stop .stop-symbol {
     display: none;
   }
   .sandra-art {
-    left: -28%;
-    height: 70%;
+    left: -19%;
+    top: 12%;
+    bottom: auto;
+    height: 60%;
   }
   .ward-background {
     object-position: 78% top;
   }
   .ward-background-frame {
-    height: 130%;
+    height: 100%;
   }
   .speech-bubble {
-    left: 46%;
-    top: 17%;
-    width: 50%;
-    padding: 0.875rem;
+    left: 4%;
+    top: auto;
+    bottom: calc(var(--composer-height, 110px) + 1.75rem);
+    width: 92%;
+    padding: 0.875rem 1rem;
     border-radius: 17px;
   }
   .speech-bubble::before {
-    left: -9px;
-    top: clamp(42px, 60%, 136px);
+    left: 22%;
+    top: -9px;
     width: 17px;
     height: 17px;
+    border: 0;
   }
   .speech-heading {
     gap: 0.25rem;
     margin-bottom: 0.5rem;
   }
   .speech-heading h2 {
-    font-size: 0.6875rem;
+    font-size: 0.8125rem;
   }
   .speech-heading > span {
     display: none;
   }
   .speech-content {
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     line-height: 1.5;
-    max-height: 23dvh;
+    max-height: min(18dvh, calc(var(--available-height, 100dvh) * 0.18));
   }
-  .scene-patient-label {
-    top: 70%;
-    right: 4%;
-    font-size: 0.625rem;
-    padding: 0.25rem 0.5rem;
-  }
-  .scene-patient-label span {
-    font-size: 0.5rem;
+  .scene-patient-label, .student-avatar, .microphone-placeholder {
+    display: none;
   }
   .response-form {
     left: 3%;
     right: 3%;
     bottom: max(1rem, env(safe-area-inset-bottom));
-    padding: 0.75rem;
-    border-radius: 16px;
+    padding: 0.625rem 0.75rem;
+    border-radius: 14px;
   }
   .composer-row {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    align-items: stretch;
     gap: 0.5rem;
   }
-  .student-avatar {
-    display: none;
-  }
   .composer-input {
-    flex-basis: 100%;
     padding: 0.25rem;
     border-radius: 10px;
   }
   textarea {
-    min-height: 3.5rem;
-    max-height: min(8rem, 22dvh);
+    min-height: 3.25rem;
+    max-height: min(7rem, 22dvh);
     padding: 0.5rem;
   }
-  .button-primary {
-    margin-left: auto;
-    min-height: 44px;
-    padding: 0.5rem 0.875rem;
-    font-size: 0.8125rem;
+  .composer-row .button-primary {
+    margin: 0;
+    width: 76px;
+    min-height: 50px;
+    padding: 0.5rem;
+    font-size: 0.75rem;
     border-radius: 10px;
   }
-  .button-primary .ui-icon {
-    width: 18px;
-    height: 18px;
+  .composer-row .button-primary .ui-icon {
+    display: none;
   }
   .response-help {
     padding: 0.5rem 0 0;
-    font-size: 0.5625rem;
+    font-size: 0.625rem;
     gap: 0.5rem;
   }
   .retry-notice {
@@ -1050,11 +1111,7 @@ textarea::placeholder {
     padding: 0.625rem;
   }
   .student-utterance {
-    max-width: 48%;
-    right: 4%;
-    bottom: 25%;
-    font-size: 0.75rem;
-    max-height: 80px;
+    display: none;
   }
   .history-drawer {
     width: 100%;
@@ -1065,8 +1122,40 @@ textarea::placeholder {
   .history-log {
     padding: 1rem;
   }
-  .conclusion-card {
-    padding: 1.5rem;
+  .outcome-region:not(:empty) {
+    padding-top: 7.25rem;
+    padding-bottom: 1rem;
+  }
+  .outcome-content {
+    padding: 1.25rem;
+  }
+  .outcome-actions {
+    padding: 0.75rem 1.25rem;
+  }
+  .outcome-actions .button-primary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) and (max-height: 650px) {
+  .sandra-art {
+    left: -4%;
+  }
+  .application-header {
+    padding: 0.375rem 0;
+    gap: 0.25rem;
+  }
+  .speech-content {
+    max-height: 13dvh;
+  }
+  .speech-bubble {
+    padding: 0.625rem 0.875rem;
+  }
+  .speech-heading {
+    margin-bottom: 0.25rem;
+  }
+  .response-help {
+    font-size: 0.5625rem;
   }
 }
 

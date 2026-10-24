@@ -17,12 +17,23 @@ import {
 import SandraReply from "./sandra-reply";
 import WardScene, { expressionForState, type SandraExpression } from "./ward-scene";
 import UiIcon from "./ui-icon";
+import OutcomePanel from "./outcome-panel";
 
 type Conversation = {
   state: ScenarioState;
   messages: Message[];
   expression: SandraExpression;
+  agreedAfterRefusal: boolean;
 };
+
+function initialConversation(): Conversation {
+  return {
+    state: "INITIAL_REQUEST",
+    messages: [{ speaker: "Sandra", text: sandraDialogue.INITIAL_REQUEST }],
+    expression: "neutral",
+    agreedAfterRefusal: false,
+  };
+}
 
 // Presentation only: the API starts immediately and Stop cancels this short wait.
 function waitForPresentation(milliseconds: number, signal: AbortSignal) {
@@ -39,16 +50,17 @@ function waitForPresentation(milliseconds: number, signal: AbortSignal) {
 }
 
 export default function Home() {
-  const [conversation, setConversation] = useState<Conversation>({
-    state: "INITIAL_REQUEST",
-    messages: [{ speaker: "Sandra", text: sandraDialogue.INITIAL_REQUEST }],
-    expression: "neutral",
-  });
+  const [conversation, setConversation] = useState<Conversation>(initialConversation);
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [revealingReply, setRevealingReply] = useState<string | null>(null);
   const [failedTurn, setFailedTurn] = useState<{ text: string; history: Message[] } | null>(null);
   const pendingRequest = useRef<AbortController | null>(null);
+  const requestTimeout = useRef<number | null>(null);
+  const restartFocus = useRef(false);
+  const applicationShell = useRef<HTMLDivElement | null>(null);
+  const sceneStage = useRef<HTMLElement | null>(null);
+  const responseForm = useRef<HTMLFormElement | null>(null);
   const responseInput = useRef<HTMLTextAreaElement | null>(null);
   const conversationLog = useRef<HTMLOListElement | null>(null);
   const historyDialog = useRef<HTMLDialogElement | null>(null);
@@ -65,10 +77,40 @@ export default function Home() {
   const latestSandraIndex = conversation.messages.lastIndexOf(latestSandra);
   const latestStudent = conversation.messages.findLast((message) => message.speaker === "You");
 
-  useEffect(() => () => {
+  const cancelPendingTurn = useCallback(() => {
     pendingRequest.current?.abort();
     pendingRequest.current = null;
+    if (requestTimeout.current !== null) window.clearTimeout(requestTimeout.current);
+    requestTimeout.current = null;
   }, []);
+
+  useEffect(() => () => cancelPendingTurn(), [cancelPendingTurn]);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    function updateHeight() {
+      if (!viewport || viewport.scale === 1) {
+        applicationShell.current?.style.setProperty("--available-height", `${viewport?.height ?? window.innerHeight}px`);
+      }
+    }
+    updateHeight();
+    viewport?.addEventListener("resize", updateHeight);
+    window.addEventListener("resize", updateHeight);
+    return () => {
+      viewport?.removeEventListener("resize", updateHeight);
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, []);
+
+  useEffect(() => {
+    const form = responseForm.current;
+    if (!active || !form) return;
+    const observer = new ResizeObserver(() => {
+      sceneStage.current?.style.setProperty("--composer-height", `${form.getBoundingClientRect().height}px`);
+    });
+    observer.observe(form);
+    return () => observer.disconnect();
+  }, [active]);
 
   useEffect(() => {
     const input = responseInput.current;
@@ -85,6 +127,9 @@ export default function Home() {
       historyDialog.current?.close();
       outcomeHeading.current?.focus({ preventScroll: true });
       outcomeHeading.current?.scrollIntoView({ block: "nearest" });
+    } else if (restartFocus.current) {
+      responseInput.current?.focus({ preventScroll: true });
+      restartFocus.current = false;
     } else if (!isBusy && restoreFocus.current && document.activeElement === document.body) {
       (failedTurn ? retryButton.current : responseInput.current)?.focus({ preventScroll: true });
     }
@@ -150,6 +195,7 @@ export default function Home() {
 
     // Allow the bounded model attempts to finish, but never leave the input stuck.
     const timeout = window.setTimeout(() => controller.abort(), 90000);
+    requestTimeout.current = timeout;
     try {
       const response = await fetch("/api/conversation", {
         method: "POST",
@@ -180,6 +226,7 @@ export default function Home() {
         const nextState = getNextState(current.state, result.classification);
         return {
           state: nextState,
+          agreedAfterRefusal: nextState === "YES_OUTCOME" && current.state !== "INITIAL_REQUEST",
           // Terminal overlays retain the last active expression.
           expression: isActiveState(nextState) ? expressionForState(nextState) : current.expression,
           messages: isActiveState(nextState)
@@ -191,6 +238,7 @@ export default function Home() {
       if (pendingRequest.current === controller) setFailedTurn({ text, history });
     } finally {
       window.clearTimeout(timeout);
+      if (requestTimeout.current === timeout) requestTimeout.current = null;
       if (pendingRequest.current === controller) {
         pendingRequest.current = null;
         setIsLoading(false);
@@ -199,8 +247,7 @@ export default function Home() {
   }
 
   function handleExit() {
-    pendingRequest.current?.abort();
-    pendingRequest.current = null;
+    cancelPendingTurn();
     setIsLoading(false);
     setRevealingReply(null);
     setFailedTurn(null);
@@ -211,8 +258,23 @@ export default function Home() {
     setResponse("");
   }
 
+  function handleRestart() {
+    cancelPendingTurn();
+    historyDialog.current?.close();
+    setIsLoading(false);
+    setRevealingReply(null);
+    setFailedTurn(null);
+    setResponse("");
+    setScrolledUp(false);
+    followLatest.current = true;
+    lastScrollTop.current = 0;
+    restoreFocus.current = false;
+    restartFocus.current = true;
+    setConversation(initialConversation());
+  }
+
   return (
-    <div className={`application-shell${active ? "" : " simulation-ended"}`}>
+    <div ref={applicationShell} className={`application-shell${active ? "" : " simulation-ended"}`}>
       <a className="skip-link" href="#conversation-panel">Skip to Sandra&apos;s dialogue</a>
       <header className="application-header">
         <div className="application-brand">
@@ -258,7 +320,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="simulation-stage">
+      <main className="simulation-stage" ref={sceneStage}>
         <WardScene expression={conversation.expression} />
         <div className="scene-scrim" aria-hidden="true" />
         <p className="scene-patient-label">Arthur Chen <span>71 years &middot; Your patient</span></p>
@@ -287,7 +349,7 @@ export default function Home() {
           )}
 
           {active && (
-            <form className="response-form" onSubmit={handleSubmit}>
+            <form className="response-form" ref={responseForm} onSubmit={handleSubmit}>
               <label className="sr-only" htmlFor="response">Your response to Sandra</label>
               <div className="composer-row">
                 <span className="student-avatar" aria-hidden="true">You</span>
@@ -329,48 +391,13 @@ export default function Home() {
         <p className="sr-only" role="status">{isLoading ? "Sandra is responding..." : ""}</p>
 
         <div className="outcome-region">
-          {conversation.state === "YES_OUTCOME" && (
-            <section className="conclusion-card" aria-labelledby="outcome-heading">
-              <p className="eyebrow">Simulation complete · Reflection</p>
-              <h2 id="outcome-heading" ref={outcomeHeading} tabIndex={-1}>You agreed to the task</h2>
-              <p>
-                The conversation has ended. In this scenario, you were not
-                authorised to administer IV medication independently. Agreeing to
-                the request would place you outside your scope and could put the
-                patient at risk.
-              </p>
-              <p>
-                Pressure from a senior colleague can make responding difficult.
-                Reflect on how you could maintain your professional boundary and
-                raise the concern with your clinical facilitator or placement
-                supervisor.
-              </p>
-            </section>
-          )}
-          {conversation.state === "NO_OUTCOME" && (
-            <section className="conclusion-card" aria-labelledby="outcome-heading">
-              <p className="eyebrow">Simulation complete · Reflection</p>
-              <h2 id="outcome-heading" ref={outcomeHeading} tabIndex={-1}>You maintained your boundary</h2>
-              <p>
-                The conversation has ended. You continued to decline a task outside
-                your authorised scope despite pressure. Maintaining this boundary
-                supports patient safety.
-              </p>
-              <p>
-                Consider how you would raise the concern with your clinical
-                facilitator or placement supervisor and seek appropriate support.
-              </p>
-            </section>
-          )}
-          {conversation.state === "EXIT" && (
-            <section className="conclusion-card" aria-labelledby="outcome-heading">
-              <p className="eyebrow">Conversation ended</p>
-              <h2 id="outcome-heading" ref={outcomeHeading} tabIndex={-1}>Simulation stopped</h2>
-              <p>
-                You have left the conversation. You can take a break or close this
-                page whenever you are ready.
-              </p>
-            </section>
+          {!active && (
+            <OutcomePanel
+              state={conversation.state}
+              agreedAfterRefusal={conversation.agreedAfterRefusal}
+              headingRef={outcomeHeading}
+              onRestart={handleRestart}
+            />
           )}
         </div>
       </main>

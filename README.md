@@ -2,7 +2,7 @@
 
 Next.js, React and TypeScript application using the App Router and npm.
 The home page uses Groq for a clinical simulation conversation with
-Sandra, free-text student responses, basic outcomes and a stop option.
+Sandra, free-text student responses, educational outcomes and a stop option.
 
 ## Local development
 
@@ -22,6 +22,10 @@ Type responses in your own words and use **Send response**. The input grows up t
 a fixed height, then scrolls internally. Enter adds a new line; Ctrl+Enter does not
 submit. **Stop simulation** remains available while Sandra is responding.
 
+Every completed outcome offers **Restart simulation**. It clears the previous
+conversation and pending work, restores the opening request and input focus, and
+makes no AI request until another response is submitted.
+
 Patient and placement information is available from the expandable control in
 the overlaid HUD. **History** opens the full session transcript; Close or Escape
 returns to the scene without changing the scenario. It shows the newest messages
@@ -38,6 +42,11 @@ The complete text remains available to assistive technology during the reveal.
 Voice and microphone controls are disabled placeholders for separate future work.
 No browser speech synthesis, microphone capture or external voice service is used.
 Conversation is text-only for now.
+
+YES and NO outcomes include reflection, follow-up steps and official learning
+resources. Agreement after an earlier refusal includes a contextual pressure note.
+Resources are configured in `lib/learning-resources.ts`; approved RMIT Canvas
+course URLs still need to be supplied by the team/client. No Canvas URLs are assumed.
 
 ## Checks and production
 
