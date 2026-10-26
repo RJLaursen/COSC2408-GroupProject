@@ -106,19 +106,56 @@ export default function Home() {
 
   useEffect(() => {
     const viewport = window.visualViewport;
+    const root = applicationShell.current;
+    if (!root) return;
+    const shell = root;
     let frame = 0;
+    let restingHeight = viewport?.height ?? window.innerHeight;
+    let restingWidth = window.innerWidth;
+    let sceneFrozen = false;
+
+    function freezeScene() {
+      if (sceneFrozen || window.innerWidth > 1000) return;
+      const scene = shell.querySelector(".ward-visuals")?.getBoundingClientRect();
+      const sandra = shell.querySelector(".sandra-art")?.getBoundingClientRect();
+      if (!scene || !sandra) return;
+      // Capture before focus: some iOS browsers shrink BOTH viewport measurements.
+      shell.style.setProperty("--scene-height", `${scene.height}px`);
+      shell.style.setProperty("--scene-sandra-height", `${sandra.height}px`);
+      shell.style.setProperty("--scene-sandra-left", `${sandra.left - scene.left}px`);
+      shell.style.setProperty("--scene-sandra-top", `${sandra.top - scene.top}px`);
+      shell.dataset.sceneFrozen = "true";
+      sceneFrozen = true;
+    }
+
+    function prepareInput(event: Event) {
+      if (event.target === responseInput.current && !responseInput.current?.disabled) freezeScene();
+      queueUpdate();
+    }
+
     function updateViewport() {
       if (!viewport || viewport.scale === 1) {
-        const shell = applicationShell.current;
-        if (!shell) return;
         const height = viewport?.height ?? window.innerHeight;
         const layoutHeight = document.documentElement.clientHeight;
+        const width = window.innerWidth;
+        if (width !== restingWidth) {
+          // Rotation/window resizing is a genuine change to the scene's layout.
+          sceneFrozen = false;
+          delete shell.dataset.sceneFrozen;
+          restingWidth = width;
+        }
+        const inputFocused = document.activeElement === responseInput.current;
+        if (sceneFrozen && !inputFocused && height >= restingHeight - 1) {
+          sceneFrozen = false;
+          delete shell.dataset.sceneFrozen;
+        }
+        if (!sceneFrozen) {
+          restingHeight = height;
+          shell.style.setProperty("--scene-height", `${layoutHeight}px`);
+        }
         shell.style.setProperty("--available-height", `${height}px`);
-        // The ward stays full-size when only the keyboard's visual viewport shrinks.
-        shell.style.setProperty("--scene-height", `${layoutHeight}px`);
         shell.style.setProperty("--viewport-top", `${viewport?.offsetTop ?? 0}px`);
-        // Browser chrome changes are smaller; a large visual-only shrink indicates the keyboard.
-        shell.dataset.keyboardOpen = String(height < layoutHeight * 0.8);
+        shell.dataset.keyboardOpen = String(sceneFrozen && height < restingHeight * 0.8);
       }
     }
     function queueUpdate() {
@@ -132,11 +169,17 @@ export default function Home() {
     viewport?.addEventListener("resize", queueUpdate);
     viewport?.addEventListener("scroll", queueUpdate);
     window.addEventListener("resize", queueUpdate);
+    document.addEventListener("pointerdown", prepareInput, true);
+    document.addEventListener("focusin", prepareInput);
+    document.addEventListener("focusout", queueUpdate);
     return () => {
       window.cancelAnimationFrame(frame);
       viewport?.removeEventListener("resize", queueUpdate);
       viewport?.removeEventListener("scroll", queueUpdate);
       window.removeEventListener("resize", queueUpdate);
+      document.removeEventListener("pointerdown", prepareInput, true);
+      document.removeEventListener("focusin", prepareInput);
+      document.removeEventListener("focusout", queueUpdate);
     };
   }, []);
 
@@ -356,7 +399,9 @@ export default function Home() {
   }
 
   return (
-    <div ref={applicationShell} className={`application-shell${active ? "" : " simulation-ended"}`}>
+    <div ref={applicationShell} className={`application-shell${active ? "" : " simulation-ended"}`}
+      onPointerDownCapture={() => { if (applicationShell.current) applicationShell.current.dataset.pointerFocus = "true"; }}
+      onKeyDownCapture={() => { if (applicationShell.current) delete applicationShell.current.dataset.pointerFocus; }}>
       <a className="skip-link" href="#conversation-panel">Skip to Sandra&apos;s dialogue</a>
       <header className="application-header" ref={hudHeader}>
         <div className="application-brand">

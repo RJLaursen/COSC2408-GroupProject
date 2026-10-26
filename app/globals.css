@@ -31,6 +31,11 @@ h1, h2, h3, p {
   outline-offset: 4px;
 }
 
+/* iOS can transfer a text field's focus ring to a dialog button after a tap. */
+.application-shell[data-pointer-focus="true"] :focus-visible {
+  outline: none;
+}
+
 .ui-icon {
   width: 21px;
   height: 21px;
@@ -1119,7 +1124,13 @@ textarea::placeholder {
 }
 
 @media (max-width: 1000px) {
-  .application-shell[data-keyboard-open="true"] {
+  [data-scene-frozen="true"] .sandra-art {
+    left: var(--scene-sandra-left);
+    top: var(--scene-sandra-top);
+    bottom: auto;
+    height: var(--scene-sandra-height);
+  }
+  .application-shell[data-keyboard-open="true"], .application-shell[data-scene-frozen="true"] {
     position: fixed;
     inset: 0;
     top: var(--viewport-top, 0px);
@@ -1187,6 +1198,17 @@ textarea::placeholder {
   }
   [data-keyboard-open="true"] .patient-information-content {
     max-height: max(0px, calc(var(--available-height, 100dvh) - var(--hud-height, 52px) - var(--composer-height, 90px) - env(safe-area-inset-top) - max(0.5rem, env(safe-area-inset-bottom)) - 2rem));
+  }
+  [data-keyboard-open="true"] .retry-notice {
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+  [data-keyboard-open="true"] .retry-notice button {
+    flex-shrink: 0;
+    max-width: 7rem;
   }
   [data-keyboard-open="true"] .response-help, [data-keyboard-open="true"] .student-avatar,
   [data-keyboard-open="true"] .student-utterance {
