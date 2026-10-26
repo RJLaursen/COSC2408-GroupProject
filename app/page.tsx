@@ -485,7 +485,7 @@ export default function Home() {
                     name="response"
                     rows={2}
                     maxLength={MAX_MESSAGE_LENGTH}
-                    aria-describedby="response-hint response-count"
+                    aria-describedby="response-count"
                     disabled={isBusy || failedTurn !== null}
                     value={response}
                     onChange={(event) => setResponse(event.target.value)}
@@ -499,7 +499,6 @@ export default function Home() {
                 <button className="button-primary" type="submit" disabled={isBusy || failedTurn !== null || !response.trim()}><UiIcon name="send" /><span>Send response</span></button>
               </div>
               <div className="response-help">
-                <p id="response-hint">Enter to send. Shift+Enter for a new line.</p>
                 <span id="response-count">{response.length} / {MAX_MESSAGE_LENGTH}</span>
               </div>
               {failedTurn && (

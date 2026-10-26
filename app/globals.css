@@ -583,10 +583,9 @@ textarea::placeholder {
 }
 
 .response-help {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
-  padding: 0.625rem 0.5rem 0 68px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.625rem 0.5rem 0;
   color: #3c6077;
   font-size: 0.75rem;
 }
@@ -928,9 +927,6 @@ textarea::placeholder {
     width: 44px;
     height: 44px;
   }
-  .response-help {
-    padding-left: 58px;
-  }
 }
 
 @media (min-width: 601px) and (max-width: 900px) and (max-aspect-ratio: 1 / 1) {
@@ -1111,7 +1107,6 @@ textarea::placeholder {
   .response-help {
     padding: 0.5rem 0 0;
     font-size: 0.75rem;
-    gap: 0.5rem;
   }
   .retry-notice {
     flex-wrap: wrap;
@@ -1137,6 +1132,13 @@ textarea::placeholder {
   }
   .outcome-actions .button-primary {
     width: 100%;
+  }
+}
+
+@media (max-width: 1000px) and (pointer: coarse) {
+  /* WebKit can expose the page canvas around the keyboard and browser controls. */
+  html, body {
+    background-color: #2e3235;
   }
 }
 
@@ -1169,7 +1171,8 @@ textarea::placeholder {
     justify-content: flex-end;
   }
   [data-keyboard-open="true"] .scene-interaction {
-    inset: calc(var(--hud-height, 60px) + env(safe-area-inset-top) + 0.5rem) 3% max(0.5rem, env(safe-area-inset-bottom));
+    /* The keyboard covers the home indicator; its safe-area inset is redundant here. */
+    inset: calc(var(--hud-height, 60px) + env(safe-area-inset-top) + 0.5rem) 3% 0.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -1214,7 +1217,7 @@ textarea::placeholder {
     min-height: 44px;
   }
   [data-keyboard-open="true"] .patient-information-content {
-    max-height: max(0px, calc(var(--available-height, 100dvh) - var(--hud-height, 52px) - var(--composer-height, 90px) - env(safe-area-inset-top) - max(0.5rem, env(safe-area-inset-bottom)) - 2rem));
+    max-height: max(0px, calc(var(--available-height, 100dvh) - var(--hud-height, 52px) - var(--composer-height, 90px) - env(safe-area-inset-top) - 2.5rem));
   }
   [data-keyboard-open="true"] .retry-notice {
     flex-wrap: nowrap;
