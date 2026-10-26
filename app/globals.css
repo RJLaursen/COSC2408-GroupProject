@@ -100,6 +100,11 @@ h1, h2, h3, p {
   background: linear-gradient(#142b4290, #142b4200 16%, #142b4200 76%, #142b4224);
 }
 
+.ward-visuals, .scene-scrim {
+  bottom: auto;
+  height: var(--scene-height, 100dvh);
+}
+
 .application-header {
   position: absolute;
   z-index: 20;
@@ -1003,8 +1008,8 @@ textarea::placeholder {
     white-space: normal;
   }
   .sandra-art {
-    left: clamp(-5rem, calc(var(--available-height, 100dvh) * -0.12 + 1rem), 0rem);
-    top: calc(var(--hud-height, 104px) + 0.25rem);
+    left: clamp(-5rem, calc(var(--scene-height, 100dvh) * -0.12 + 1rem), 0rem);
+    top: calc(var(--scene-hud-height, 104px) + 0.25rem);
     bottom: auto;
     height: 60%;
   }

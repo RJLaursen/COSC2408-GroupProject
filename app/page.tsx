@@ -112,10 +112,13 @@ export default function Home() {
         const shell = applicationShell.current;
         if (!shell) return;
         const height = viewport?.height ?? window.innerHeight;
+        const layoutHeight = document.documentElement.clientHeight;
         shell.style.setProperty("--available-height", `${height}px`);
+        // The ward stays full-size when only the keyboard's visual viewport shrinks.
+        shell.style.setProperty("--scene-height", `${layoutHeight}px`);
         shell.style.setProperty("--viewport-top", `${viewport?.offsetTop ?? 0}px`);
         // Browser chrome changes are smaller; a large visual-only shrink indicates the keyboard.
-        shell.dataset.keyboardOpen = String(height < document.documentElement.clientHeight * 0.8);
+        shell.dataset.keyboardOpen = String(height < layoutHeight * 0.8);
       }
     }
     function queueUpdate() {
@@ -144,6 +147,9 @@ export default function Home() {
     const observer = new ResizeObserver(() => {
       applicationShell.current?.style.setProperty("--composer-height", `${form?.getBoundingClientRect().height ?? 0}px`);
       applicationShell.current?.style.setProperty("--hud-height", `${header.getBoundingClientRect().height}px`);
+      if (applicationShell.current?.dataset.keyboardOpen !== "true") {
+        applicationShell.current?.style.setProperty("--scene-hud-height", `${header.getBoundingClientRect().height}px`);
+      }
     });
     if (form) observer.observe(form);
     observer.observe(header);
