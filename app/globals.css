@@ -51,7 +51,8 @@ h1, h2, h3, p {
   position: relative;
   height: var(--available-height, 100dvh);
   min-height: 0;
-  overflow: hidden;
+  /* Keep the full-height scene visible beneath the keyboard-sized controls. */
+  overflow: visible;
   isolation: isolate;
 }
 
