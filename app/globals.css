@@ -582,18 +582,6 @@ textarea::placeholder {
   cursor: not-allowed;
 }
 
-.response-help {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.625rem 0.5rem 0;
-  color: #3c6077;
-  font-size: 0.75rem;
-}
-
-.response-help span {
-  white-space: nowrap;
-}
-
 .retry-notice {
   display: flex;
   align-items: center;
@@ -1104,10 +1092,6 @@ textarea::placeholder {
   .composer-row .button-primary .ui-icon {
     display: none;
   }
-  .response-help {
-    padding: 0.5rem 0 0;
-    font-size: 0.75rem;
-  }
   .retry-notice {
     flex-wrap: wrap;
     padding: 0.625rem;
@@ -1230,7 +1214,7 @@ textarea::placeholder {
     flex-shrink: 0;
     max-width: 7rem;
   }
-  [data-keyboard-open="true"] .response-help, [data-keyboard-open="true"] .student-avatar,
+  [data-keyboard-open="true"] .student-avatar,
   [data-keyboard-open="true"] .student-utterance {
     display: none;
   }

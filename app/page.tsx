@@ -285,7 +285,9 @@ export default function Home() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const text = response.trim();
+    // Keep the submitted turn and its Retry/history copies within the API limit.
+    const text = response.trim().slice(0, MAX_MESSAGE_LENGTH)
+      .replace(/[\uD800-\uDBFF]$/, "").trimEnd(); // Avoid splitting an emoji at the cutoff.
     if (!text || failedTurn || isBusy) return;
     void sendResponse(text, conversation.messages.slice(-HISTORY_LIMIT));
   }
@@ -484,8 +486,6 @@ export default function Home() {
                     id="response"
                     name="response"
                     rows={2}
-                    maxLength={MAX_MESSAGE_LENGTH}
-                    aria-describedby="response-count"
                     disabled={isBusy || failedTurn !== null}
                     value={response}
                     onChange={(event) => setResponse(event.target.value)}
@@ -497,9 +497,6 @@ export default function Home() {
                   />
                 </div>
                 <button className="button-primary" type="submit" disabled={isBusy || failedTurn !== null || !response.trim()}><UiIcon name="send" /><span>Send response</span></button>
-              </div>
-              <div className="response-help">
-                <span id="response-count">{response.length} / {MAX_MESSAGE_LENGTH}</span>
               </div>
               {failedTurn && (
                 <div className="retry-notice">
