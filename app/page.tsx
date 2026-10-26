@@ -56,7 +56,8 @@ export default function Home() {
   const [conversation, setConversation] = useState<Conversation>(initialConversation);
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [revealingReply, setRevealingReply] = useState<string | null>(null);
+  const [revealingReply, setRevealingReply] = useState<string | null>(sandraDialogue.INITIAL_REQUEST);
+  const [presentationKey, setPresentationKey] = useState(0);
   const [failedTurn, setFailedTurn] = useState<{ text: string; history: Message[] } | null>(null);
   const pendingRequest = useRef<AbortController | null>(null);
   const requestTimeout = useRef<number | null>(null);
@@ -68,6 +69,7 @@ export default function Home() {
   const hudHeader = useRef<HTMLElement | null>(null);
   const conversationLog = useRef<HTMLOListElement | null>(null);
   const historyDialog = useRef<HTMLDialogElement | null>(null);
+  const historyAnimation = useRef<Animation | null>(null);
   const outcomeHeading = useRef<HTMLHeadingElement | null>(null);
   const retryButton = useRef<HTMLButtonElement | null>(null);
   const followLatest = useRef(true);
@@ -79,6 +81,7 @@ export default function Home() {
   const finishReveal = useCallback(() => setRevealingReply(null), []);
   const latestSandra = conversation.messages.findLast((message) => message.speaker === "Sandra")!;
   const latestSandraIndex = conversation.messages.lastIndexOf(latestSandra);
+  const presentingOpening = active && latestSandraIndex === 0 && revealingReply === latestSandra.text;
   const latestStudent = conversation.messages.findLast((message) => message.speaker === "You");
 
   const cancelPendingTurn = useCallback(() => {
@@ -88,21 +91,49 @@ export default function Home() {
     requestTimeout.current = null;
   }, []);
 
-  useEffect(() => () => cancelPendingTurn(), [cancelPendingTurn]);
+  const closeHistoryImmediately = useCallback(() => {
+    historyAnimation.current?.cancel();
+    historyAnimation.current = null;
+    const dialog = historyDialog.current;
+    if (dialog) delete dialog.dataset.closing;
+    dialog?.close();
+  }, []);
+
+  useEffect(() => () => {
+    cancelPendingTurn();
+    historyAnimation.current?.cancel();
+  }, [cancelPendingTurn]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
-    function updateHeight() {
+    let frame = 0;
+    function updateViewport() {
       if (!viewport || viewport.scale === 1) {
-        applicationShell.current?.style.setProperty("--available-height", `${viewport?.height ?? window.innerHeight}px`);
+        const shell = applicationShell.current;
+        if (!shell) return;
+        const height = viewport?.height ?? window.innerHeight;
+        shell.style.setProperty("--available-height", `${height}px`);
+        shell.style.setProperty("--viewport-top", `${viewport?.offsetTop ?? 0}px`);
+        // Browser chrome changes are smaller; a large visual-only shrink indicates the keyboard.
+        shell.dataset.keyboardOpen = String(height < document.documentElement.clientHeight * 0.8);
       }
     }
-    updateHeight();
-    viewport?.addEventListener("resize", updateHeight);
-    window.addEventListener("resize", updateHeight);
+    function queueUpdate() {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        updateViewport();
+      });
+    }
+    updateViewport();
+    viewport?.addEventListener("resize", queueUpdate);
+    viewport?.addEventListener("scroll", queueUpdate);
+    window.addEventListener("resize", queueUpdate);
     return () => {
-      viewport?.removeEventListener("resize", updateHeight);
-      window.removeEventListener("resize", updateHeight);
+      window.cancelAnimationFrame(frame);
+      viewport?.removeEventListener("resize", queueUpdate);
+      viewport?.removeEventListener("scroll", queueUpdate);
+      window.removeEventListener("resize", queueUpdate);
     };
   }, []);
 
@@ -131,17 +162,17 @@ export default function Home() {
 
   useEffect(() => {
     if (!active) {
-      historyDialog.current?.close();
+      closeHistoryImmediately();
       outcomeHeading.current?.focus({ preventScroll: true });
       outcomeHeading.current?.scrollIntoView({ block: "nearest" });
-    } else if (restartFocus.current) {
-      responseInput.current?.focus({ preventScroll: true });
+    } else if (restartFocus.current && !isBusy) {
+      if (!historyDialog.current?.open) responseInput.current?.focus({ preventScroll: true });
       restartFocus.current = false;
     } else if (!isBusy && restoreFocus.current && document.activeElement === document.body) {
       (failedTurn ? retryButton.current : responseInput.current)?.focus({ preventScroll: true });
     }
     if (!isBusy) restoreFocus.current = false;
-  }, [active, isBusy, failedTurn]);
+  }, [active, isBusy, failedTurn, closeHistoryImmediately]);
 
   function trackConversationScroll() {
     const log = conversationLog.current;
@@ -164,7 +195,17 @@ export default function Home() {
   }
 
   function openHistory() {
-    historyDialog.current?.showModal();
+    const dialog = historyDialog.current;
+    if (!dialog || dialog.open) return;
+    historyAnimation.current?.cancel();
+    delete dialog.dataset.closing;
+    dialog.showModal();
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      historyAnimation.current = dialog.animate(
+        [{ transform: "translateX(1.5rem)", opacity: 0 }, { transform: "translateX(0)", opacity: 1 }],
+        { duration: 200, easing: "ease-out" },
+      );
+    }
     followLatest.current = true;
     const log = conversationLog.current;
     if (log) log.scrollTop = log.scrollHeight;
@@ -172,7 +213,23 @@ export default function Home() {
   }
 
   function closeHistory() {
-    historyDialog.current?.close();
+    const dialog = historyDialog.current;
+    if (!dialog?.open || dialog.dataset.closing) return;
+    historyAnimation.current?.cancel();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      closeHistoryImmediately();
+      return;
+    }
+    dialog.dataset.closing = "true";
+    const animation = dialog.animate(
+      [{ transform: "translateX(0)", opacity: 1 }, { transform: "translateX(1.5rem)", opacity: 0 }],
+      { duration: 200, easing: "ease-in", fill: "forwards" },
+    );
+    historyAnimation.current = animation;
+    // Keep the native modal and focus trap until its closing animation finishes.
+    void animation.finished.then(() => {
+      if (historyAnimation.current === animation) closeHistoryImmediately();
+    }).catch(() => { /* Stop, Restart or unmount cancelled the animation. */ });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -263,6 +320,7 @@ export default function Home() {
 
   function handleExit() {
     composing.current = false;
+    closeHistoryImmediately();
     cancelPendingTurn();
     setIsLoading(false);
     setRevealingReply(null);
@@ -277,9 +335,10 @@ export default function Home() {
   function handleRestart() {
     composing.current = false;
     cancelPendingTurn();
-    historyDialog.current?.close();
+    closeHistoryImmediately();
     setIsLoading(false);
-    setRevealingReply(null);
+    setRevealingReply(sandraDialogue.INITIAL_REQUEST);
+    setPresentationKey((current) => current + 1);
     setFailedTurn(null);
     setResponse("");
     setScrolledUp(false);
@@ -338,7 +397,7 @@ export default function Home() {
         <div className="scene-scrim" aria-hidden="true" />
 
         <section id="conversation-panel" className="scene-interaction" aria-label="Conversation with Sandra" tabIndex={-1} inert={!active}>
-          <div className="speech-bubble" role="log" aria-label="Sandra's current dialogue" aria-live="polite" aria-relevant="additions" aria-busy={isLoading}>
+          <div className="speech-bubble" role="log" aria-label="Sandra's current dialogue" aria-live="polite" aria-relevant="additions" aria-busy={isLoading || presentingOpening}>
             <div className="speech-heading">
               <h2>Sandra Kowalski, <span>RN</span></h2>
               <span aria-hidden="true">&middot;&middot;&middot;</span>
@@ -348,9 +407,10 @@ export default function Home() {
                 <div className="typing-dots" aria-hidden="true"><span /><span /><span /></div>
               ) : (
                 <SandraReply
-                  key={latestSandraIndex}
+                  key={`${presentationKey}-${latestSandraIndex}`}
                   text={latestSandra.text}
                   animate={active && revealingReply === latestSandra.text}
+                  typingDelayMs={latestSandraIndex === 0 ? 900 : 0}
                   onComplete={finishReveal}
                 />
               )}
@@ -400,7 +460,7 @@ export default function Home() {
             </form>
           )}
         </section>
-        <p className="sr-only" role="status">{isLoading ? "Sandra is responding..." : ""}</p>
+        <p className="sr-only" role="status">{isLoading || presentingOpening ? "Sandra is responding..." : ""}</p>
 
         <div className="outcome-region">
           {!active && (
@@ -414,7 +474,7 @@ export default function Home() {
         </div>
       </main>
 
-      <dialog id="history-dialog" className="history-drawer" ref={historyDialog} aria-labelledby="history-heading" onClick={(event) => { if (event.target === event.currentTarget) closeHistory(); }}>
+      <dialog id="history-dialog" className="history-drawer" ref={historyDialog} aria-labelledby="history-heading" onCancel={(event) => { event.preventDefault(); closeHistory(); }} onClick={(event) => { if (event.target === event.currentTarget) closeHistory(); }}>
         <div className="history-surface">
           <header className="history-header">
             <div><p className="eyebrow">This conversation</p><h2 id="history-heading">Conversation history</h2></div>
