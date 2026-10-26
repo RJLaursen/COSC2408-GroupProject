@@ -329,9 +329,10 @@ button {
 }
 
 .speech-bubble {
+  --speech-top: max(17%, calc(var(--hud-height, 76px) + 1rem));
   position: absolute;
   left: 30%;
-  top: max(17%, calc(var(--hud-height, 76px) + 1rem));
+  top: var(--speech-top);
   width: clamp(18rem, 36vw, 42rem);
   padding: 1.25rem 1.5rem;
   border: 1px solid #ffffffed;
@@ -880,6 +881,21 @@ textarea::placeholder {
   transform: translateY(0);
 }
 
+@media (min-width: 601px) {
+  /* Leave room for the composer even when a multi-line response makes it taller. */
+  .application-shell:not([data-keyboard-open="true"]) .speech-bubble {
+    display: flex;
+    flex-direction: column;
+    max-height: max(0px, calc(100% - var(--speech-top) - var(--composer-height, 148px) - max(3.3%, env(safe-area-inset-bottom)) - 1rem));
+  }
+  .speech-heading {
+    flex-shrink: 0;
+  }
+  .speech-content {
+    min-height: 0;
+  }
+}
+
 @media (max-width: 1000px) and (min-width: 601px) {
   .application-header {
     grid-template-columns: minmax(0, 1fr) auto;
@@ -919,8 +935,8 @@ textarea::placeholder {
 
 @media (min-width: 601px) and (max-width: 900px) and (max-aspect-ratio: 1 / 1) {
   .speech-bubble {
+    --speech-top: max(19%, calc(var(--hud-height, 88px) + 1rem));
     left: 37%;
-    top: max(19%, calc(var(--hud-height, 88px) + 1rem));
     width: 58%;
     padding: 1.125rem;
   }

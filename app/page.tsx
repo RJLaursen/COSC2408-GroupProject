@@ -115,7 +115,9 @@ export default function Home() {
     let sceneFrozen = false;
 
     function freezeScene() {
-      if (sceneFrozen || window.innerWidth > 1000) return;
+      const touchInput = window.matchMedia("(pointer: coarse)").matches;
+      // Resizing a desktop window with a physical keyboard must not freeze the scene.
+      if (sceneFrozen || window.innerWidth > 1000 || !touchInput) return;
       const scene = shell.querySelector(".ward-visuals")?.getBoundingClientRect();
       const sandra = shell.querySelector(".sandra-art")?.getBoundingClientRect();
       if (!scene || !sandra) return;
