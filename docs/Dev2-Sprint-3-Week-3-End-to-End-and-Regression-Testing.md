@@ -159,7 +159,9 @@ Following the final local testing, Dev 1 deployed the Virtual Health Precinct ap
 The application is now accessible through a hosted web link, allowing users to open the simulation without installing or running the project locally.
 
 **Deployment platform:** Vercel  
+
 **Deployment URL:** https://virtual-health-precinct.vercel.app/
+
 **Deployment status:** Accessible and functioning during Dev 2's reported testing
 
 This represents a significant improvement over the previous local-only development and testing environment.
